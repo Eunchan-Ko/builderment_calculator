@@ -1,4 +1,6 @@
 from typing import Dict, List, Optional
+import json
+
 from .models import Item, Recipe
 from .database import ITEMS, RECIPES, BUILDING_DATA
 
@@ -8,9 +10,7 @@ ALL_ITEMS: Dict[str, Item] = {item_data["name"]: Item(**item_data) for item_data
 # A dictionary mapping an item name to a LIST of recipes that can produce it.
 ALL_RECIPES: Dict[str, List[Recipe]] = {}
 for recipe_data in RECIPES:
-    # We need to add craft_time to the model if it doesn't exist, or handle it here.
-    # For now, we'll assume the Recipe model will be updated or we pop it here.
-    recipe_craft_time = recipe_data.get("craft_time", 1) # Default craft time to 1 if not specified
+    recipe_craft_time = recipe_data.get("craft_time", 1)
 
     parsed_inputs = []
     for item_info, quantity in recipe_data["inputs"]:
@@ -38,6 +38,33 @@ for recipe_data in RECIPES:
             ALL_RECIPES[output_item_name] = []
         ALL_RECIPES[output_item_name].append(recipe)
 
+
+def is_raw_material(item_name: str) -> bool:
+    """Checks if an item is a raw material (i.e., has no recipes to produce it)."""
+    return item_name not in ALL_RECIPES
+
+def calculate_max_raw_output(item_name: str, num_extractors: int, extractor_level: int) -> float:
+    """
+    Calculates the maximum output of a raw material given a number of extractors and their level.
+    """
+    if num_extractors > 500 :
+        raise ValueError("Number of extractors cannot exceed 500.")
+
+    if not is_raw_material(item_name):
+        raise ValueError(f"{item_name} is not a raw material and cannot be extracted.")
+
+    if 'Extractor' not in BUILDING_DATA:
+        raise ValueError("Extractor building data not found.")
+
+    extractor_levels_data = BUILDING_DATA['Extractor']['levels']
+    if extractor_level not in extractor_levels_data:
+        raise ValueError(f"Invalid Extractor level: {extractor_level}. Available levels: {list(extractor_levels_data.keys())}")
+
+    speed_multiplier = extractor_levels_data[extractor_level]['speed_multiplier']
+    base_rate = BUILDING_DATA['Extractor']['base_rate']
+
+    total_output = num_extractors * base_rate * speed_multiplier
+    return total_output
 
 def _resolve_dependencies(
     item_name: str,
@@ -111,8 +138,6 @@ def _resolve_dependencies(
             active_alts,
             building_levels,
         )
-
-import json
 
 def calculate_requirements(
     target_item_name: str, 

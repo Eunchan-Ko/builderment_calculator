@@ -17,7 +17,6 @@ const darkTheme = createTheme({
         },
     },
 });
-
 interface InputMaterial {
     name: string;
 }
@@ -55,6 +54,14 @@ function App() {
     const [result, setResult] = useState<ProductionNode | null>(null);
     const [loading, setLoading] = useState(false);
 
+    // New state for Max Output from Extractors feature
+    const [maxOutputItem, setMaxOutputItem] = useState<string>('');
+    const [numExtractors, setNumExtractors] = useState<string>('1');
+    const [maxOutputExtractorLevel, setMaxOutputExtractorLevel] = useState<number>(1);
+    const [maxOutputResult, setMaxOutputResult] = useState<number | null>(null);
+    const [maxOutputLoading, setMaxOutputLoading] = useState<boolean>(false);
+    const [maxOutputError, setMaxOutputError] = useState<string>('');
+
     useEffect(() => {
         Promise.all([
             fetch('http://127.0.0.1:8000/items').then(res => res.json()),
@@ -69,6 +76,12 @@ function App() {
             const initialLevels: { [key: string]: number } = {};
             Object.keys(buildingData).forEach(b => initialLevels[b] = 1);
             setBuildingLevels(initialLevels);
+
+            // Initialize maxOutputItem to the first raw material if available
+            const rawMaterials = itemData.filter((item: string) => !recipeData.some((r: Recipe) => r.outputs[0][0].name === item));
+            if (rawMaterials.length > 0) {
+                setMaxOutputItem(rawMaterials[0]);
+            }
         }).catch(error => console.error('Error fetching data:', error));
     }, []);
 
@@ -105,6 +118,30 @@ function App() {
             .finally(() => setLoading(false));
     };
 
+    const handleMaxOutputCalculate = () => {
+        if (!maxOutputItem || !numExtractors || !!maxOutputError) return;
+        setMaxOutputLoading(true);
+        setMaxOutputResult(null);
+
+        const url = `http://127.0.0.1:8000/max_output_from_extractors?item_name=${maxOutputItem}&num_extractors=${numExtractors}&extractor_level=${maxOutputExtractorLevel}`;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
+            .then(data => {
+                setMaxOutputResult(data.max_output);
+            })
+            .catch(error => {
+                console.error('Error calculating max output:', error);
+                setMaxOutputError(error.detail || 'An unknown error occurred.');
+            })
+            .finally(() => setMaxOutputLoading(false));
+    };
+
     const renderTree = (node: ProductionNode, itemName: string) => (
         <Paper key={itemName} variant="outlined" sx={{ p: 2, my: 1, bgcolor: 'background.paper' }}>
             <Typography variant="h6">{itemName}: {node.required.toFixed(2)}/min</Typography>
@@ -132,9 +169,9 @@ function App() {
             <Container maxWidth="lg" sx={{ my: 4 }}>
                 <Typography variant="h4" component="h1" gutterBottom>Builderment Calculator</Typography>
                 <Paper sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="h6" gutterBottom>Options</Typography>
-                    <Grid container spacing={2}>
-                        <Grid xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Options</Typography>
+                    <Grid container spacing={1}>
+                        <Grid item xs={12} md={6}>
                             <FormControl fullWidth>
                                 <InputLabel>Item</InputLabel>
                                 <Select value={selectedItem} label="Item" onChange={e => setSelectedItem(e.target.value)}>
@@ -142,10 +179,10 @@ function App() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid xs={12} md={4}>
+                        <Grid item xs={12} md={4}>
                             <TextField fullWidth label="Quantity/min" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />
                         </Grid>
-                        <Grid xs={12} md={2}>
+                        <Grid item xs={12} md={2}>
                             <Button fullWidth variant="contained" onClick={handleCalculate} disabled={loading} sx={{ height: '100%' }}>Calculate</Button>
                         </Grid>
                     </Grid>
@@ -153,10 +190,10 @@ function App() {
 
                 {Object.keys(buildingData).length > 0 &&
                     <Paper sx={{ p: 2, mb: 2 }}>
-                        <Typography variant="h6" gutterBottom>Building Levels</Typography>
-                        <Grid container spacing={2}>
+                        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Building Levels</Typography>
+                        <Grid container spacing={1}>
                             {Object.entries(buildingData).map(([name, data]) => (
-                                <Grid xs={6} md={3} key={name}>
+                                <Grid item xs={6} md={3} key={name}>
                                     <FormControl fullWidth>
                                         <InputLabel>{name}</InputLabel>
                                         <Select
@@ -172,16 +209,75 @@ function App() {
                         </Grid>
                     </Paper>
                 }
-
+{/*
                 <Paper sx={{ p: 2, mb: 2 }}>
-                    {/* 1. 제목을 한국어로 변경했습니다. */}
-                    <Typography variant="h6" gutterBottom>Alternative Recipe</Typography>
-                    <FormGroup sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap' }}>
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Max Output from Extractors</Typography>
+                    <Grid container spacing={1}>
+                        <Grid item xs={12} md={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Raw Material</InputLabel>
+                                <Select value={maxOutputItem} label="Raw Material" onChange={e => setMaxOutputItem(e.target.value)}>
+                                    {items.filter(item => !allRecipes.some(r => r.outputs[0][0].name === item)).map(item => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                            <TextField
+                                fullWidth
+                                label="Number of Extractors"
+                                type="number"
+                                value={numExtractors}
+                                onChange={e => {
+                                    setNumExtractors(e.target.value);
+                                    if (isNaN(parseFloat(e.target.value)) && e.target.value !== '') {
+                                        setMaxOutputError('Please enter a valid number.');
+                                    } else {
+                                        setMaxOutputError('');
+                                    }
+                                }}
+                                error={!!maxOutputError}
+                                helperText={maxOutputError}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                            <FormControl fullWidth>
+                                <InputLabel>Extractor Level</InputLabel>
+                                <Select
+                                    value={maxOutputExtractorLevel}
+                                    label="Extractor Level"
+                                    onChange={e => setMaxOutputExtractorLevel(e.target.value as number)}
+                                >
+                                    {buildingData.Extractor && Object.keys(buildingData.Extractor.levels).map(level => <MenuItem key={level} value={level}>{`Level ${level}`}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12}>
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                onClick={handleMaxOutputCalculate}
+                                disabled={maxOutputLoading || !!maxOutputError || !maxOutputItem || !numExtractors}
+                                sx={{ height: '100%' }}
+                            >
+                                Calculate Max Output
+                            </Button>
+                        </Grid>
+                    </Grid>
+                    {maxOutputLoading && <CircularProgress sx={{ mt: 2 }} />}
+                    {maxOutputResult && !maxOutputLoading && (
+                        <Typography variant="h6" sx={{ mt: 2 }}>
+                            Max Output: {maxOutputResult.toFixed(2)}/min
+                        </Typography>
+                    )}
+                </Paper>
+*/}
+                <Paper sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Alternative Recipes</Typography>
+                    <FormGroup sx={{ display: 'flex', flexDirection: 'column' }}>
                         {Array.isArray(allRecipes) &&
                             allRecipes
                                 .filter(r => r.is_alternative)
                                 .map(recipe => {
-                                    // 2. 재료 이름을 추출하여 라벨을 동적으로 생성합니다.
                                     const materialNames = recipe.inputs.map(input => input[0].name);
                                     const materialsString = materialNames.join(', ');
                                     const displayLabel = `${recipe.name} (${materialsString})`;
@@ -189,7 +285,7 @@ function App() {
                                     return (
                                         <FormControlLabel
                                             key={recipe.name}
-                                            label={displayLabel} // 생성된 라벨을 여기에 적용
+                                            label={displayLabel}
                                             control={
                                                 <Checkbox
                                                     checked={selectedAlts[recipe.name] || false}

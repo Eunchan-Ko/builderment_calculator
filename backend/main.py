@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-from .calculator import calculate_requirements, ALL_ITEMS, ALL_RECIPES, BUILDING_DATA
+from .calculator import calculate_requirements, ALL_ITEMS, ALL_RECIPES, BUILDING_DATA, calculate_max_raw_output
 from .models import Recipe
 
 app = FastAPI()
@@ -44,6 +44,18 @@ def get_recipes() -> List[Recipe]:
 @app.get("/buildings")
 def get_buildings() -> Dict:
     return BUILDING_DATA
+
+@app.get("/max_output_from_extractors")
+def get_max_output_from_extractors(
+    item_name: str,
+    num_extractors: float,
+    extractor_level: int = 1
+):
+    try:
+        max_output = calculate_max_raw_output(item_name, num_extractors, extractor_level)
+        return {"item_name": item_name, "max_output": max_output}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/calculate")
 def post_calculation(request: CalculationRequest):
