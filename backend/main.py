@@ -48,7 +48,7 @@ def get_buildings() -> Dict:
 @app.get("/max_output_from_extractors")
 def get_max_output_from_extractors(
     item_name: str,
-    num_extractors: float,
+    num_extractors: int,
     extractor_level: int = 1
 ):
     try:
