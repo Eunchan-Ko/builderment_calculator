@@ -50,6 +50,14 @@ interface AggregatedRawMaterial {
     level?: number;
 }
 
+const getItemImagePath = (itemName: string) => {
+    let imageName = itemName;
+    if (imageName.startsWith('Alt: ')) {
+        imageName = imageName.substring(5);
+    }
+    return `/imgs/item_${imageName.replace(/ /g, '_').toLowerCase()}.webp`;
+};
+
 function App() {
     const [items, setItems] = useState<string[]>([]);
     const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
@@ -203,7 +211,10 @@ function App() {
 
     const renderTree = (node: ProductionNode, itemName: string) => (
         <Paper key={itemName} variant="outlined" sx={{ p: 2, my: 1, bgcolor: 'background.paper' }}>
-            <Typography variant="h6">{itemName}: {node.required.toFixed(2)}/min</Typography>
+            <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
+                <img src={getItemImagePath(itemName)} alt={itemName} style={{ width: 32, height: 32, marginRight: 8 }} />
+                {itemName}: {node.required.toFixed(2)}/min
+            </Typography>
             {node.is_raw && (
                 <Typography variant="body2" color="text.secondary">
                     Requires {node.extractor_count?.toFixed(2)} Level {node.level} {node.extractor_machine}(s)
@@ -234,7 +245,12 @@ function App() {
                             <FormControl fullWidth>
                                 <InputLabel>Item</InputLabel>
                                 <Select value={selectedItem} label="Item" onChange={e => setSelectedItem(e.target.value)}>
-                                    {items.map(item => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                                    {items.map(item => (
+                                        <MenuItem key={item} value={item}>
+                                            <img src={getItemImagePath(item)} alt={item} style={{ width: 24, height: 24, marginRight: 8 }} />
+                                            {item}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
                         </Grid>
@@ -346,9 +362,26 @@ function App() {
                             allRecipes
                                 .filter(r => r.is_alternative)
                                 .map(recipe => {
-                                    const materialNames = recipe.inputs.map(input => input[0].name);
-                                    const materialsString = materialNames.join(', ');
-                                    const displayLabel = `${recipe.name} (${materialsString})`;
+                                    const materialNames = recipe.inputs.map(input => {
+                                        const itemName = input[0].name;
+                                        return (
+                                            <span key={itemName} style={{ display: 'inline-flex', alignItems: 'center', marginRight: 8 }}>
+                                                <img src={getItemImagePath(itemName)} alt={itemName} style={{ width: 16, height: 16, marginRight: 4 }} />
+                                                {itemName}
+                                            </span>
+                                        );
+                                    });
+
+                                    const displayLabel = (
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <img src={getItemImagePath(recipe.name)} alt={recipe.name} style={{ width: 24, height: 24, marginRight: 8 }} />
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                {`${recipe.name.substring(5)} (`}
+                                                {materialNames}
+                                                {`)`}
+                                            </div>
+                                        </div>
+                                    );
 
                                     return (
                                         <FormControlLabel
@@ -371,7 +404,8 @@ function App() {
                     <Paper sx={{ p: 2, mt: 2 }}>
                         <Typography variant="h6" gutterBottom>Total Raw Materials Required</Typography>
                         {Object.entries(totalRequiredItems).map(([itemName, data]) => (
-                            <Typography key={itemName} variant="body1">
+                            <Typography key={itemName} variant="body1" component="div" sx={{ display: 'flex', alignItems: 'center' }}>
+                                <img src={getItemImagePath(itemName)} alt={itemName} style={{ width: 24, height: 24, marginRight: 8 }} />
                                 {itemName}: {data.quantity.toFixed(2)}/min
                                 {data.extractorCount !== undefined && data.extractorMachine && data.level !== undefined &&
                                     ` | ( Requires ${data.extractorCount.toFixed(2)} Level ${data.level.toFixed(0)} ${data.extractorMachine}(s))`
