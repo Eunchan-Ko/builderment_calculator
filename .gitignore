@@ -1,3 +1,6 @@
 .gemini
 .idea
 gemini.md
+manage_servers.sh
+backend.log
+frontend.log
