@@ -3,8 +3,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-from .calculator import calculate_requirements, ALL_ITEMS, ALL_RECIPES, BUILDING_DATA, calculate_max_raw_output
-from .models import Recipe
+from backend.calculator import calculate_requirements, ALL_ITEMS, ALL_RECIPES, BUILDING_DATA, calculate_max_raw_output
+from backend.models import Recipe
 
 app = FastAPI()
 

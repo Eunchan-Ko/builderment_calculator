@@ -43,6 +43,13 @@ interface Recipe {
 }
 interface BuildingData { [key: string]: { levels: { [key: number]: any } } }
 
+interface AggregatedRawMaterial {
+    quantity: number;
+    extractorCount?: number;
+    extractorMachine?: string;
+    level?: number;
+}
+
 function App() {
     const [items, setItems] = useState<string[]>([]);
     const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
@@ -53,6 +60,44 @@ function App() {
     const [buildingLevels, setBuildingLevels] = useState<{ [key: string]: number }>({});
     const [result, setResult] = useState<ProductionNode | null>(null);
     const [loading, setLoading] = useState(false);
+    const [totalRequiredItems, setTotalRequiredItems] = useState<{ [key: string]: AggregatedRawMaterial }>({});
+
+    const aggregateRawMaterials = (productionResult: { [key: string]: ProductionNode } | null) => {
+        const totals: { [key: string]: AggregatedRawMaterial } = {};
+
+        if (!productionResult) {
+            return totals;
+        }
+
+        const traverse = (node: ProductionNode, currentItemName: string) => {
+            if (node.is_raw) {
+                if (!totals[currentItemName]) {
+                    totals[currentItemName] = { quantity: 0, extractorCount: 0 };
+                }
+                totals[currentItemName].quantity += node.required;
+                if (node.extractor_count) {
+                    totals[currentItemName].extractorCount = (totals[currentItemName].extractorCount || 0) + node.extractor_count;
+                }
+                if (node.extractor_machine) {
+                    totals[currentItemName].extractorMachine = node.extractor_machine;
+                }
+                if (node.level) {
+                    totals[currentItemName].level = node.level;
+                }
+            }
+            if (node.inputs) {
+                Object.entries(node.inputs).forEach(([inputItemName, inputNode]) => {
+                    traverse(inputNode, inputItemName);
+                });
+            }
+        };
+
+        Object.entries(productionResult).forEach(([itemName, node]) => {
+            traverse(node, itemName);
+        });
+
+        return totals;
+    };
 
     // New state for Max Output from Extractors feature
     const [maxOutputItem, setMaxOutputItem] = useState<string>('');
@@ -93,13 +138,24 @@ function App() {
         setBuildingLevels({ ...buildingLevels, [machine]: level });
     };
 
+    const handleSetAllToMaxLevel = () => {
+        const newBuildingLevels: { [key: string]: number } = {};
+        Object.entries(buildingData).forEach(([name, data]) => {
+            if (data.levels) {
+                const maxLevel = Math.max(...Object.keys(data.levels).map(Number));
+                newBuildingLevels[name] = maxLevel;
+            }
+        });
+        setBuildingLevels(newBuildingLevels);
+    };
+
     const handleCalculate = () => {
         if (!selectedItem || !quantity) return;
         setLoading(true);
         setResult(null);
 
         const activeAlts = Object.entries(selectedAlts).filter(([, v]) => v).map(([k]) => k);
-        
+
         const requestBody = {
             item_name: selectedItem,
             quantity: parseFloat(quantity),
@@ -113,7 +169,10 @@ function App() {
             body: JSON.stringify(requestBody),
         })
             .then(response => response.json())
-            .then(data => setResult(data))
+            .then(data => {
+                setResult(data);
+                setTotalRequiredItems(aggregateRawMaterials(data));
+            })
             .catch(error => console.error('Error calculating:', error))
             .finally(() => setLoading(false));
     };
@@ -190,7 +249,16 @@ function App() {
 
                 {Object.keys(buildingData).length > 0 &&
                     <Paper sx={{ p: 2, mb: 2 }}>
-                        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>Building Levels</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="h6" component="h2" gutterBottom sx={{ mb: 0 }}>Building Levels</Typography>
+                            <Button
+                                variant="contained"
+                                onClick={handleSetAllToMaxLevel}
+                                size="small"
+                            >
+                                Set All to Max Level
+                            </Button>
+                        </Box>
                         <Grid container spacing={1}>
                             {Object.entries(buildingData).map(([name, data]) => (
                                 <Grid item xs={6} md={3} key={name}>
@@ -298,6 +366,20 @@ function App() {
                                 })}
                     </FormGroup>
                 </Paper>
+
+                {Object.keys(totalRequiredItems).length > 0 && (
+                    <Paper sx={{ p: 2, mt: 2 }}>
+                        <Typography variant="h6" gutterBottom>Total Raw Materials Required</Typography>
+                        {Object.entries(totalRequiredItems).map(([itemName, data]) => (
+                            <Typography key={itemName} variant="body1">
+                                {itemName}: {data.quantity.toFixed(2)}/min
+                                {data.extractorCount !== undefined && data.extractorMachine && data.level !== undefined &&
+                                    ` | ( Requires ${data.extractorCount.toFixed(2)} Level ${data.level.toFixed(0)} ${data.extractorMachine}(s))`
+                                }
+                            </Typography>
+                        ))}
+                    </Paper>
+                )}
 
                 {loading ? <CircularProgress /> : result &&
                     <Paper sx={{ p: 2, mt: 2 }}>

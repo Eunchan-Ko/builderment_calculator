@@ -352,8 +352,8 @@ RECIPES = [
     # machine : Industrial Factory
 
     {
-        "name": "Computers",
-        "outputs": [({"name": "Computers"}, 1)],
+        "name": "Computer",
+        "outputs": [({"name": "Computer"}, 1)],
         "inputs": [({"name": "Heat Sink"}, 3),
                    ({"name": "Metal Frame"}, 1),
                    ({"name": "Logic Circuit"}, 3)],
@@ -386,7 +386,7 @@ RECIPES = [
         "outputs": [({"name": "Industrial Frame"}, 1)],
         "inputs": [({"name": "Concrete"}, 6),
                    ({"name": "Metal Frame"}, 2),
-                   ({"name": "Tungsten Cable"}, 8)],
+                   ({"name": "Tungsten Carbide"}, 8)],
         "craft_time": 20,
         "machine": "Industrial Factory",
         "is_alternative": False,
@@ -416,7 +416,7 @@ RECIPES = [
         "outputs": [({"name": "Tank"}, 1)],
         "inputs": [({"name": "Concrete"}, 4),
                    ({"name": "Glass"}, 2),
-                   ({"name": "Tungsten Cable"}, 4)],
+                   ({"name": "Tungsten Carbide"}, 4)],
         "craft_time": 10,
         "machine": "Industrial Factory",
         "is_alternative": False,
