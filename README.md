@@ -86,3 +86,6 @@
 6.  **Calculate (계산):** 버튼을 클릭하여 필요한 자원 및 건물 수를 확인합니다.
 
 ---
+### 4. Error Report
+    - please contact me with instagram
+    - @eunchan_go
